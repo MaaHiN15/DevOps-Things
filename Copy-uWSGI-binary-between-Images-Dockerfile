@@ -1,0 +1,19 @@
+FROM python:3.8 AS builder
+
+WORKDIR /app
+
+RUN pip install uwsgi --target /app
+
+FROM python:3.8-slim 
+
+RUN apt-get update && apt-get install libxml2 -y
+
+COPY --from=builder /app/bin/uwsgi /usr/local/bin/uwsgi 
+COPY --from=builder /app/uWSGI-2.0.22.dist-info /usr/local/lib/python3.8/dist-packages/uWSGI-2.0.22.dist-info 
+COPY --from=builder /app/uwsgidecorators.py /usr/local/lib/python3.8/dist-packages/uwsgidecorators.py
+
+WORKDIR /app
+
+COPY main.py .
+
+CMD ["uwsgi", "--http", "0.0.0.0:4000", "--wsgi-file", "main.py"]
