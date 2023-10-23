@@ -1,7 +1,5 @@
 FROM python:3.8 AS builder
 
-WORKDIR /app
-
 RUN pip install uwsgi --target /app
 
 FROM python:3.8-slim 
