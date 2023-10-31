@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  nginx:
+    container_name: nginx
+    image: nginx
+    ports:
+    - 8000:80
+    volumes:
+      - ./nginx:/etc/nginx
+    restart: always
+    depends_on:
+    - django
+
+  django:
+    container_name: django
+    build:
+      context: ./django/myproject
+    command: ["uwsgi", "uwsgi.ini"]
+    volumes:
+      - ./django/myproject:/app
+    ports:
+    - 8001:8003
+    restart: always
+    depends_on:
+    - redis
+    - rmq
+
+  worker1:
+    container_name: worker1
+    image: nginxdemos/hello
+    ports:
+      - 8002:80
+    depends_on:
+    - nginx
+    
+  worker2:
+    container_name: worker2
+    image: nginxdemos/hello
+    ports:
+      - 8003:80
+    depends_on:
+    - nginx
+
+  rmq:
+    container_name: rmq
+    image: rabbitmq:3.12-management-alpine
+    environment:
+    - RABBITMQ_DEFAULT_USER=guest
+    - RABBITMQ_DEFAULT_PASS=guest
+    - HOSTNAME=rmqhost
+    ports:
+    - 5672:5672
+    - 15672:15672
+
+  celery:
+    container_name: celery
+    build:
+      context: ./django/myproject
+    command: celery --app=myproject worker -l INFO -Q task
+    volumes:
+      - ./django/myproject:/app
+    restart: always
+    depends_on:
+    - redis
+    - django
+    - rmq
+
+  redis:
+    container_name: redis
+    image: redis:7.0.11-alpine
+-----------------------------------------------------------------
+# The following nginx.conf file have load balancing configuration, django proxy configuration.
+
+user  nginx;
+worker_processes  auto;
+
+error_log  /var/log/nginx/error.log notice;
+pid        /var/run/nginx.pid;
+
+
+events {
+    worker_connections  1024;
+}
+
+mail {}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    keepalive_timeout  65;
+
+    gzip on;
+    gzip_comp_level 3;
+    gzip_types text/css text/javascript;
+
+    include /etc/nginx/conf.d/*.conf;
+
+    proxy_cache_path /etc/nginx/cache keys_zone=mycache:10m;
+
+    upstream workers {
+        # ip_hash;
+        server "worker1" weight=5;
+        server "worker2";
+    }
+
+    server {
+        listen 80;
+        server_name localhost;
+
+        location /website {
+            root website;
+            access_log /var/log/nginx/server.log;
+            error_log /var/log/nginx/server.error.log;
+            index index.html;
+            add_header Accept-Encoding gzip;
+        }
+        location / {
+            proxy_pass "http://django:8003/";
+            access_log /var/log/nginx/django.log;
+            error_log /var/log/nginx/django.error.log;
+            auth_basic "Secure area";
+            auth_basic_user_file .htpasswd;
+        }
+        location = /lb {
+            proxy_pass "http://workers/";
+            proxy_cache mycache;
+        }
+    }
+}
