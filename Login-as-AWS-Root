@@ -3,17 +3,17 @@ ssh -i /path/my-key-pair.pem ubuntu@ec2-remote-server.amazonaws.com
 # Making backups 
 sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak 
 
-sudo vim /etc/ssh/sshd_config 
+sudo vi /etc/ssh/sshd_config 
 PermitRootLogin yes
 
-sudo vim ~/.ssh/authorized_keys 
+sudo vi ~/.ssh/authorized_keys 
 # Make sure there is only one key without any bash commands
 
 # Set root password
 passwd root 
 
 # Restart ssh service
-sudo systemctl restart ssh
+sudo systemctl restart sshd
 
 Copy authorized keys into root path
 sudo cp ~/.ssh/authorized_keys /root/.ssh/authorized_keys
