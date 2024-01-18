@@ -12,7 +12,7 @@ ENV PYTHONUNBUFFERED 1
 
 COPY req.txt $HOME_DIR/req.txt
 
-RUN pip install -r $HOME_DIR/req.txt
+RUN pip install --no-cache-dir -r $HOME_DIR/req.txt
 
 COPY ./entrypoint.sh $HOME_DIR/entrypoint.sh
 
