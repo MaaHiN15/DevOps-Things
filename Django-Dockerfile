@@ -20,6 +20,7 @@ COPY . $HOME_DIR
 
 ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
 
+CMD ["python", "manage.py", "runserver", "0.0.0.0:4000"]
 
 
 #################################################
